@@ -1,0 +1,12 @@
+*.py[co]
+*.db
+
+/.idea/
+/.vagrant
+
+/var/
+
+/conf/*.*
+!/conf/__init__.py
+!/conf/wsgi.py
+/conf/settings/local.py
