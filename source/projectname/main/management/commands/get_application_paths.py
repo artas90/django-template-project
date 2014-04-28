@@ -4,6 +4,8 @@ import sys
 import json
 from django.core.management import BaseCommand, CommandError
 from django.db.models import get_apps
+from django.conf import settings
+
 
 class Command(BaseCommand):
 
@@ -12,14 +14,15 @@ class Command(BaseCommand):
             raise CommandError('Command takes no arguments (%s given)' % len(args))
 
         app_dict = {}
+        source_dir = os.path.join(settings.PROJECT_ROOT, 'source')
 
         for app_module in get_apps():
             app_name =  app_module.__name__
+            dir_, file_ = os.path.split(app_module.__file__)
+            is_own_app = dir_.startswith(source_dir)
 
-            if app_name.startswith('projectname.'):
-                dir_, file_ = os.path.split(app_module.__file__)
-
-                if file_.startswith('__init__'):
+            if is_own_app:
+                if file_.startswith('__init__.'):
                     dir_ = os.path.join(dir_, '..')
 
                 app_short_name = app_name.split('.')[-2] # app_name ends with '.models'
