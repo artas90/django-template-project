@@ -228,12 +228,14 @@ def generate_config_files():
     profile_name = _get_profile()
     profile = SETTINGS_PROFILES[profile_name]
 
+    project_name = PROJECT_NAME.lower()
+
     site_domain = ''
     while not site_domain:
         site_domain = raw_input('Enter domain of your site (ex.: site.com): ')
 
     config_files = [
-        (_sample('nginx_sample.conf'), _conf('_nginx_semanticdesk_{}.conf'.format(profile_name))),
+        (_sample('nginx_sample.conf'), _conf('_nginx_{}_{}.conf'.format(project_name, profile_name))),
         (_sample('supervisord_sample.conf'), _conf('supervisord.conf')),
         (_sample('gunicorn_conf_sample.py'), _conf('gunicorn_conf.py')),
     ]
