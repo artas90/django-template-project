@@ -1,9 +1,11 @@
 import os
 import json
 from contextlib import contextmanager
-from fabric.operations import local as fab_local, sudo, env
+from fabric.operations import local, sudo, env
 from fabric.context_managers import lcd, prefix, cd, settings
 from fabric.utils import abort
+
+p = os.path
 
 
 __all__ = [
@@ -29,13 +31,13 @@ __all__ = [
 
 PROJECT_NAME = 'ProjectName'
 PROJECT_PREFIX = 'PN'
-SITE_DIR = os.path.dirname(__file__)
-SOURCE_DIR = os.path.join(SITE_DIR, 'source')
-MANAGE_PY = os.path.join(SITE_DIR, 'manage.py')
-VIRTUALENV_DIR = os.path.join(SITE_DIR, 'var', 'virtualenv')
-VIRTUALENV_BIN = os.path.join(VIRTUALENV_DIR, PROJECT_NAME, 'bin')
-VIRTUALENV_ACTIVATE = '. {}'.format(os.path.join(VIRTUALENV_BIN, 'activate'))
-SUPERVISOR_CONFIG = os.path.join(SITE_DIR, 'conf', 'supervisord.conf')
+SITE_DIR = p.dirname(__file__)
+SOURCE_DIR = p.join(SITE_DIR, 'source')
+MANAGE_PY = p.join(SITE_DIR, 'manage.py')
+VIRTUALENV_DIR = p.join(SITE_DIR, 'var', 'virtualenv')
+VIRTUALENV_BIN = p.join(VIRTUALENV_DIR, PROJECT_NAME, 'bin')
+VIRTUALENV_ACTIVATE = '. {}'.format(p.join(VIRTUALENV_BIN, 'activate'))
+SUPERVISOR_CONFIG = p.join(SITE_DIR, 'conf', 'supervisord.conf')
 
 
 def create_virtualenv():
@@ -43,11 +45,11 @@ def create_virtualenv():
     Create empty virtualenv in var/virtualenv folder
     """
     with lcd(SITE_DIR):
-        if not os.path.isdir(VIRTUALENV_DIR):
+        if not p.isdir(VIRTUALENV_DIR):
             os.mkdir(VIRTUALENV_DIR)
 
     with lcd(VIRTUALENV_DIR):
-        fab_local('virtualenv --no-site-packages {}'.format(PROJECT_NAME))
+        local('virtualenv --no-site-packages {}'.format(PROJECT_NAME))
 
 
 def update_virtualenv():
@@ -57,11 +59,11 @@ def update_virtualenv():
     with lcd(SITE_DIR):
         print "Clean pyc/pyo"
 
-        fab_local("find . -name '*.pyc' -delete")
-        fab_local("find . -name '*.pyo' -delete")
+        local("find . -name '*.pyc' -delete")
+        local("find . -name '*.pyo' -delete")
 
         with prefix(VIRTUALENV_ACTIVATE):
-            fab_local('pip install -r requirements.txt')
+            local('pip install -r requirements.txt')
 
 
 def init_virtualenv():
@@ -77,11 +79,11 @@ def deploy():
     Deploy/re-deploy the project
     """
     with lcd(SITE_DIR):
-        fab_local('git pull')
+        local('git pull')
         with prefix(VIRTUALENV_ACTIVATE):
-            fab_local('pip install -r requirements.txt')
-            fab_local('python manage.py syncdb --migrate')
-            fab_local('python manage.py collectstatic --noinput')
+            local('pip install -r requirements.txt')
+            local('python manage.py syncdb --migrate')
+            local('python manage.py collectstatic --noinput')
     restart()
 
 #==== Supervisor helper functions ====
@@ -89,8 +91,8 @@ def deploy():
 @contextmanager
 def _supervisor_started():
     with lcd(SITE_DIR):
-        if not os.path.exists(os.path.join(SITE_DIR, 'var', 'run', 'supervisord.pid')):
-            fab_local('supervisord -c {}'.format(SUPERVISOR_CONFIG))
+        if not p.exists(p.join(SITE_DIR, 'var', 'run', 'supervisord.pid')):
+            local('supervisord -c {}'.format(SUPERVISOR_CONFIG))
         yield
 
 
@@ -99,7 +101,7 @@ def restart(app='all'):
     Usage: fab restart[:app_name]
     """
     with _supervisor_started():
-        fab_local('supervisorctl -c {} restart {}'.format(SUPERVISOR_CONFIG, app))
+        local('supervisorctl -c {} restart {}'.format(SUPERVISOR_CONFIG, app))
 
 
 def start(app='all'):
@@ -107,7 +109,7 @@ def start(app='all'):
     Usage: fab start[:app_name]
     """
     with _supervisor_started():
-        fab_local('supervisorctl -c {} start {}'.format(SUPERVISOR_CONFIG, app))
+        local('supervisorctl -c {} start {}'.format(SUPERVISOR_CONFIG, app))
 
 
 def stop(app='all'):
@@ -115,7 +117,7 @@ def stop(app='all'):
     Usage: fab stop[:app_name]
     """
     with _supervisor_started():
-        fab_local('supervisorctl -c {} stop {}'.format(SUPERVISOR_CONFIG, app))
+        local('supervisorctl -c {} stop {}'.format(SUPERVISOR_CONFIG, app))
 
 
 def status():
@@ -123,7 +125,7 @@ def status():
     Usage: fab status
     """
     with _supervisor_started():
-        fab_local('supervisorctl -c {} status'.format(SUPERVISOR_CONFIG))
+        local('supervisorctl -c {} status'.format(SUPERVISOR_CONFIG))
 
 
 #==== Localization functions ====
@@ -135,7 +137,7 @@ class _LocalizationCommand(object):
 
     def __call__(self, app_name, locale):
         with lcd(SITE_DIR), prefix(VIRTUALENV_ACTIVATE):
-            self.applications = json.loads(fab_local('python manage.py get_application_paths', capture=True))
+            self.applications = json.loads(local('python manage.py get_application_paths', capture=True))
 
         if app_name.lower() == '__all__':
             for app in self.applications:
@@ -149,14 +151,14 @@ class _LocalizationCommand(object):
 
     def _process_app(self, app_path, locale):
         app_path = self.applications[app_path]
-        locale_dir = os.path.join(app_path, 'locale')
+        locale_dir = p.join(app_path, 'locale')
 
-        if not os.path.isdir(locale_dir):
+        if not p.isdir(locale_dir):
             os.mkdir(locale_dir)
 
         if locale.lower() == '__all__':
             for locale_ in os.listdir(locale_dir):
-                 if os.path.isdir(os.path.join(locale_dir, locale_)):
+                 if p.isdir(p.join(locale_dir, locale_)):
                     self._process_locale(app_path, locale_)
             return
 
@@ -165,7 +167,7 @@ class _LocalizationCommand(object):
     def _process_locale(self, app_path, locale):
         with lcd(app_path):
             print "Process '{}' ".format(app_path)
-            fab_local('python {} {} -l {}'.format(MANAGE_PY, self.cmd, locale))
+            local('python {} {} -l {}'.format(MANAGE_PY, self.cmd, locale))
 
 make_messages = _LocalizationCommand('makemessages')
 make_messages.__doc__ = 'Usage: fab makemessages:(app_name or __all__),(locale or __all__)'
@@ -211,11 +213,11 @@ def _get_profile():
 
 
 def _sample(*args):
-    return os.path.join(SITE_DIR, 'conf', 'sample', *args)
+    return p.join(SITE_DIR, 'conf', 'sample', *args)
 
 
 def _conf(*args):
-    return os.path.join(SITE_DIR, 'conf', *args)
+    return p.join(SITE_DIR, 'conf', *args)
 
 
 def generate_config_files():
