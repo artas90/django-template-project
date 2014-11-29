@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 from contextlib import contextmanager
 from fabric.operations import local, sudo, env
@@ -31,20 +32,20 @@ __all__ = [
 
 PROJECT_NAME = 'ProjectName'
 PROJECT_PREFIX = 'PN'
-SITE_DIR = p.dirname(__file__)
-SOURCE_DIR = p.join(SITE_DIR, 'source')
-MANAGE_PY = p.join(SITE_DIR, 'manage.py')
-VIRTUALENV_DIR = p.join(SITE_DIR, 'var', 'virtualenv')
+PROJECT_DIR = p.dirname(__file__)
+SOURCE_DIR = p.join(PROJECT_DIR, 'source')
+MANAGE_PY = p.join(PROJECT_DIR, 'manage.py')
+VIRTUALENV_DIR = p.join(PROJECT_DIR, 'var', 'virtualenv')
 VIRTUALENV_BIN = p.join(VIRTUALENV_DIR, PROJECT_NAME, 'bin')
 VIRTUALENV_ACTIVATE = '. {}'.format(p.join(VIRTUALENV_BIN, 'activate'))
-SUPERVISOR_CONFIG = p.join(SITE_DIR, 'conf', 'supervisord.conf')
+SUPERVISOR_CONFIG = p.join(PROJECT_DIR, 'conf', 'supervisord.conf')
 
 
 def create_virtualenv():
     """
     Create empty virtualenv in var/virtualenv folder
     """
-    with lcd(SITE_DIR):
+    with lcd(PROJECT_DIR):
         if not p.isdir(VIRTUALENV_DIR):
             os.mkdir(VIRTUALENV_DIR)
 
@@ -56,7 +57,7 @@ def update_virtualenv():
     """
     Install/update project requirements
     """
-    with lcd(SITE_DIR):
+    with lcd(PROJECT_DIR):
         print "Clean pyc/pyo"
 
         local("find . -name '*.pyc' -delete")
@@ -78,7 +79,7 @@ def deploy():
     """
     Deploy/re-deploy the project
     """
-    with lcd(SITE_DIR):
+    with lcd(PROJECT_DIR):
         local('git pull')
         with prefix(VIRTUALENV_ACTIVATE):
             local('pip install -r requirements.txt')
@@ -86,12 +87,43 @@ def deploy():
             local('python manage.py collectstatic --noinput')
     restart()
 
+
+#==== Utility to read django settings from fabric ====
+
+class FabricSettings(object):
+
+    def __init__(self):
+        self.__settings = None
+
+        try:
+            self.DATABASES = self._settings.DATABASES
+            self.SETTINGS = self._settings.FAB_SETTINGS
+
+        except AttributeError:
+            abort("Please fill all required fabric settings (FAB_*).\n"
+                  "See file 'conf/settings/local.py.sample'.")
+
+    @property
+    def _settings(self):
+        if not self.__settings:
+            conf_dir = p.abspath(p.join(PROJECT_DIR, 'conf'))
+            sys.path.insert(0, conf_dir)
+
+            os.environ["FAB_SETTING_MODE"] = '1'
+            import settings
+            self.__settings = settings
+
+            sys.path.pop(0)
+
+        return self.__settings
+
+
 #==== Supervisor helper functions ====
 
 @contextmanager
 def _supervisor_started():
-    with lcd(SITE_DIR):
-        if not p.exists(p.join(SITE_DIR, 'var', 'run', 'supervisord.pid')):
+    with lcd(PROJECT_DIR):
+        if not p.exists(p.join(PROJECT_DIR, 'var', 'run', 'supervisord.pid')):
             local('supervisord -c {}'.format(SUPERVISOR_CONFIG))
         yield
 
@@ -136,7 +168,7 @@ class _LocalizationCommand(object):
         self.cmd = cmd
 
     def __call__(self, app_name, locale):
-        with lcd(SITE_DIR), prefix(VIRTUALENV_ACTIVATE):
+        with lcd(PROJECT_DIR), prefix(VIRTUALENV_ACTIVATE):
             self.applications = json.loads(local('python manage.py get_application_paths', capture=True))
 
         if app_name.lower() == '__all__':
@@ -213,11 +245,11 @@ def _get_profile():
 
 
 def _sample(*args):
-    return p.join(SITE_DIR, 'conf', 'sample', *args)
+    return p.join(PROJECT_DIR, 'conf', 'sample', *args)
 
 
 def _conf(*args):
-    return p.join(SITE_DIR, 'conf', *args)
+    return p.join(PROJECT_DIR, 'conf', *args)
 
 
 def generate_config_files():
@@ -244,7 +276,7 @@ def generate_config_files():
         with open(input) as f_in, open(output, 'w') as f_out:
 
             output_data = f_in.read()
-            output_data = output_data.replace('{{ SITE_DIR }}', SITE_DIR)
+            output_data = output_data.replace('{{ PROJECT_DIR }}', PROJECT_DIR)
             output_data = output_data.replace('{{ PROFILE }}', profile_name)
             output_data = output_data.replace('{{ GUNICORN_NAME }}', profile['GUNICORN_NAME'])
             output_data = output_data.replace('{{ GUNICORN_PORT }}', unicode(profile['GUNICORN_PORT']))
