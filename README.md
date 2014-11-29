@@ -8,12 +8,17 @@ Setup guide
 
 1. Init python virtualenv:
 
-    `$ fab init_virtualenv`
+    Install pillow dependencies
+
+    - OS X   `$ brew install libjpeg libpng libtiff webp freetype little-cms2 openjpeg`
+    - Ubuntu `$ ...`
+
+   `$ fab init_virtualenv`
 
 2. Copy sample file contains settings for this intallation and fill it:
 
     `$ cp conf/settings/local.py.sample conf/settings/local.py`
-    
+
 3. Activate virtualenv:
 
     `$ . var/virtualenv/ProjectName/bin/activate`
