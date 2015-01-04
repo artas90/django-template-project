@@ -19,6 +19,13 @@
     <!-- Include all compiled plugins (below), or include individual files as needed -->
     <script src="{% static 'main/components/bootstrap/3.0.3/js/bootstrap.min.js' %}"></script>
 
+    <script type="text/javascript">
+        ProjectName = window.ProjectName || {};
+        ProjectName.formats = ProjectName.formats || {};
+        ProjectName.formats.jsDateFormat = '{{ JS_DATE_FORMAT }}';
+        ProjectName.formats.jsDateTimeFormat = '{{ JS_DATETIME_FORMAT }}';
+    </script>
+
     {% block static %}
     {% endblock %}
 </head>
